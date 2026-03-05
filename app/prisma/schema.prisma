@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  REVIEWER
+}
+
+enum ReviewStatus {
+  NOT_REVIEWED
+  INTERESTED
+  REQUEST_INTERVIEW
+  NOT_INTERESTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  role          UserRole  @default(REVIEWER)
+  companyId     String?
+  company       Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  reviews       Review[]
+  magicTokens   MagicToken[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model MagicToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Candidate {
+  id                String   @id @default(cuid())
+  teamTailorId      String?  @unique
+  firstName         String
+  lastName          String?
+  email             String?
+  phone             String?
+  pictureUrl        String?
+  resumeUrl         String?
+  summary           String?  @db.Text
+  summaryIsManual   Boolean  @default(false)
+  skills            Json     @default("[]")
+  experience        Json     @default("[]")
+  education         Json     @default("[]")
+  certifications    Json     @default("[]")
+  linkedinUrl       String?
+  tags              Json     @default("[]")
+  lastSyncedAt      DateTime?
+  assignments       CandidateAssignment[]
+  reviews           Review[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  contactName  String?
+  contactEmail String?
+  notes        String?  @db.Text
+  shareToken   String   @unique @default(cuid())
+  isActive     Boolean  @default(true)
+  reviewers    User[]
+  assignments  CandidateAssignment[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model CandidateAssignment {
+  id          String    @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviews     Review[]
+  createdAt   DateTime  @default(now())
+
+  @@unique([candidateId, companyId])
+}
+
+model Review {
+  id           String       @id @default(cuid())
+  status       ReviewStatus @default(NOT_REVIEWED)
+  feedback     String?      @db.Text
+  reviewerId   String
+  reviewer     User         @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  candidateId  String
+  candidate    Candidate    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignmentId String
+  assignment   CandidateAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([reviewerId, candidateId, assignmentId])
+}
+
+model TeamTailorConfig {
+  id          String   @id @default(cuid())
+  apiKey      String
+  apiRegion   String   @default("eu")
+  lastSyncAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
